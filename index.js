@@ -11,7 +11,7 @@ class WordleSolver {
         this.executablePath = './node_modules/puppeteer/.local-chromium/win64-970485/chrome-win/chrome.exe';
         // this.defaultTimeOut = 20000;
         // this.timer;
-        this.openerWord = 'bless';
+        this.openerWord = 'fudge';
         this.isRandomWord = true;
         this.headless = false;
         this.args = [
@@ -116,14 +116,18 @@ class WordleSolver {
                 break;
             }
         }
-        for (let i = 0; i < this.presentLetters.length; i++) {
-            if (word.includes(this.presentLetters[i])) {
-                if (i == this.presentLetters.length - 1) {
-                    flagPresent = true;
+        if (this.presentLetters.length) {
+            for (let i = 0; i < this.presentLetters.length; i++) {
+                if (word.includes(this.presentLetters[i])) {
+                    if (i == this.presentLetters.length - 1) {
+                        flagPresent = true;
+                    }
+                } else {
+                    break;
                 }
-            } else {
-                break;
             }
+        } else {
+            flagPresent = true;
         }
         for (let i = 0; i < this.avoidLetters.length; i++) {
             if (this.avoidLetters[i].length) {
@@ -148,6 +152,11 @@ class WordleSolver {
         if (!flagHistory && !flagAbsent && flagPresent && !flagAvoid && flagCorrect) {
             res = true;
         }
+        // console.log('history : ', flagHistory);
+        // console.log('absent : ', flagAbsent);
+        // console.log('present : ', flagPresent);
+        // console.log('avoid : ', flagAvoid);
+        // console.log('correct : ', flagCorrect);
         return res;
     }
 
@@ -173,7 +182,7 @@ class WordleSolver {
                 console.log('============= Try ' + counter + ' =============');
                 console.log('lucky word:', tempWord);
                 this.historyWords.push(tempWord);
-                await this.runProcedure(2000, this.submit(tempWord));
+                await this.runProcedure(3000, this.submit(tempWord));
                 evaluationTemp = await this.runFunction(1000, this.getEvaluation(tempWord));
                 console.log(evaluationTemp);
                 evaluationTemp.forEach((letter, index) => {
@@ -200,6 +209,8 @@ class WordleSolver {
                 console.log('absent:', this.absentLetters);
                 if (this.winCheker()) {
                     console.log('============= You Win =============');
+                    await this.page.waitForTimeout(5000);
+                    await this.browser.close();
                     break;
                 }
                 this.dumpWords = this.wordBank.filter(word => this.checkWord(word));
@@ -210,25 +221,6 @@ class WordleSolver {
         } catch (e) {
             console.log(e);
         }
-    }
-
-    tempFunction() {
-        this.correctLetters = ['', 'e', 'a', '', ''];
-        this.presentLetters = [
-            ['s'],
-            [],
-            [],
-            ['s'],
-            []
-        ];
-        this.avoidLetters = [
-            [],
-            [],
-            [],
-            [],
-            ['s']
-        ];
-        this.absentLetters = ['m', 'l'];
     }
 
     async start() {
