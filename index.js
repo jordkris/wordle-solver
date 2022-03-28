@@ -1,17 +1,16 @@
-import puppeteer from "puppeteer-extra";
-import { $ } from "puppeteer-shadow-selector";
+import puppeteer from 'puppeteer-extra';
+import { $ } from 'puppeteer-shadow-selector';
 import fs from 'fs';
-// const readline = require('readline');
+import readline from 'readline';
 import chalk from 'chalk';
 import process from 'process';
+import axios from 'axios';
 
 class WordleSolver {
     constructor(wordBank) {
         this.wordBank = wordBank;
         this.executablePath = './node_modules/puppeteer/.local-chromium/win64-970485/chrome-win/chrome.exe';
         this.defaultTimeOut = 20000;
-        this.openerWord = 'react';
-        this.isRandomWord = true;
         this.headless = false;
         this.args = [
             '--start-maximized', // you can also use '--start-fullscreen'
@@ -32,7 +31,7 @@ class WordleSolver {
         this.guessWords = [];
     }
 
-    async initBrowser() {
+    initBrowser = async() => {
         this.timer = this.consoleTimer('Open browser \t');
         this.browser = await puppeteer.launch({
             executablePath: this.executablePath,
@@ -43,7 +42,7 @@ class WordleSolver {
         });
     }
 
-    consoleTimer(message) {
+    consoleTimer = (message, shuffleMode = false) => {
         this.clearTimer(this.timer);
         let diff = 1;
         let initTime = new Date().getTime();
@@ -52,32 +51,36 @@ class WordleSolver {
                 process.stdout.clearLine();
                 process.stdout.cursorTo(0);
                 realTime = (new Date().getTime() - initTime) / 1000;
-                process.stdout.write(message + ' |\t' + chalk.yellow(`Elapsed time : ${realTime}s`));
+                if (shuffleMode) {
+                    message = `big brain time.${'.'.repeat(Math.floor(realTime / diff))}`;
+                }
+                process.stdout.write(message + ' |\t' + chalk.yellow(`Elapsed time: ${realTime}s`));
             },
             diff);
         return id;
     }
 
-    clearTimer(timer) {
+    clearTimer = (timer) => {
         clearInterval(timer);
         process.stdout.write('\n');
     }
 
-    async getInnerHTML(elm) {
-        const elmProperty = await elm.getProperty('innerHTML');
-        return await elmProperty.jsonValue();
-    }
+    // getInnerHTML = async(elm) => {
+    //     const elmProperty = await elm.getProperty('innerHTML');
+    //     return await elmProperty.jsonValue();
+    // }
 
-    async click(elm) {
+    click = async(elm) => {
         await elm.click();
     }
 
-    async closePopUp() {
+    closePopUp = async() => {
+        await this.page.waitForTimeout(500);
         const popUp = await $(this.page, `game-app::shadow-dom(game-theme-manager > header)`);
         await this.click(popUp);
     }
 
-    async submit(text) {
+    submit = async(text) => {
         for (let i = 0; i < 5; i++) {
             await this.page.keyboard.press('Backspace');
         }
@@ -90,13 +93,13 @@ class WordleSolver {
         await this.page.keyboard.press('Enter');
     }
 
-    async getEvaluation(word) {
+    getEvaluation = async(word) => {
         try {
             const gameRow = await $(this.page, `game-app::shadow-dom(game-theme-manager game-row[letters="${word.toLowerCase()}"]::shadow-dom(div))`);
             const gameTiles = await gameRow.$$(':scope > *');
             const evaluation = [];
             for (let gameTile of gameTiles) {
-                const attr = await this.page.evaluate(el => el.getAttribute("evaluation"), gameTile);
+                const attr = await this.page.evaluate(el => el.getAttribute('evaluation'), gameTile);
                 evaluation.push(attr);
             }
             return evaluation;
@@ -105,25 +108,25 @@ class WordleSolver {
         }
     }
 
-    checkEvaluation(evaluation) {
-        return evaluation.filter(value => value != null).length == 5 ? true : false;
+    checkEvaluation = (evaluation) => {
+        return evaluation.filter(value => value !== null).length === 5 ? true : false;
     }
 
-    isSingleLetter(letter, word) {
+    isSingleLetter = (letter, word) => {
         let counter = 0;
         for (let i = 0; i < word.length; i++) {
             if (letter === word[i]) {
                 counter++;
             }
         }
-        if (counter == 1) {
+        if (counter === 1) {
             return true;
         } else {
             return false;
         }
     }
 
-    checkWord(word) {
+    checkWord = (word) => {
         let res = false;
         let flagHistory = false;
         let flagAbsent = false;
@@ -142,7 +145,7 @@ class WordleSolver {
         if (this.presentLetters.length) {
             for (let i = 0; i < this.presentLetters.length; i++) {
                 if (word.includes(this.presentLetters[i])) {
-                    if (i == this.presentLetters.length - 1) {
+                    if (i === this.presentLetters.length - 1) {
                         flagPresent = true;
                     }
                 } else {
@@ -163,39 +166,41 @@ class WordleSolver {
             }
         }
         for (let i = 0; i < this.correctLetters.length; i++) {
-            if (this.correctLetters[i] != '') {
-                if (this.correctLetters[i] != word[i]) {
+            if (this.correctLetters[i] !== '') {
+                if (this.correctLetters[i] !== word[i]) {
                     break;
                 }
             }
-            if (i == this.correctLetters.length - 1) {
+            if (i === this.correctLetters.length - 1) {
                 flagCorrect = true;
             }
         }
         if (!flagHistory && !flagAbsent && flagPresent && !flagAvoid && flagCorrect) {
             res = true;
         }
-        // console.log('history : ', flagHistory);
-        // console.log('absent : ', flagAbsent);
-        // console.log('present : ', flagPresent);
-        // console.log('avoid : ', flagAvoid);
-        // console.log('correct : ', flagCorrect);
+        // console.log(word, res, `history: ${flagHistory}, absent: ${flagAbsent}, present: ${flagPresent}, avoid: ${flagAvoid}, correct: ${flagCorrect}`);
         return res;
     }
 
-    randomPick(arr) {
+    randomPick = (arr) => {
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    shuffle(arr) {
+    shuffle = (arr) => {
         return arr
             .map(value => ({ value, sort: Math.random() }))
             .sort((a, b) => a.sort - b.sort)
             .map(({ value }) => value);
     }
 
-    winChecker() {
-        if (this.correctLetters.filter(letter => letter != '').length == 5) {
+    isDictWord = async(word) => {
+        return await axios.get(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`).catch((error) => {
+            // console.error(chalk.red(error));
+        });
+    }
+
+    winChecker = () => {
+        if (this.correctLetters.filter(letter => letter !== '').length === 5) {
             return 'win';
         } else {
             if (this.guessWords.length >= 6) {
@@ -206,35 +211,46 @@ class WordleSolver {
         }
     }
 
-    async toDo() {
+    toDo = async() => {
         try {
-            let evaluationTemp;
-            let counter = 1;
-            let flagFinish = false;
-            let flagStatus = 'lose';
-            this.page = await this.browser.newPage();
+            let counter = 1,
+                dictResult, evaluationTemp,
+                flagFinish, flagStatus, tempWord;
+            this.page = (await this.browser.pages())[0];
             this.page.setDefaultTimeout(this.defaultTimeOut);
             this.timer = this.consoleTimer('Open link \t');
             await this.page.goto('https://www.nytimes.com/games/wordle/index.html');
-            // await this.page.keyboard.up('Meta');
-            // await this.page.keyboard.press('ArrowRight');
-            // await this.page.keyboard.down('Meta');
-            await this.page.waitForTimeout(500);
+            this.page.waitForTimeout(500);
             await this.closePopUp();
-            let tempWord = this.isRandomWord ? this.randomPick(this.wordBank) : this.openerWord;
-            console.log('\n');
             while (true) {
+                console.log('\n');
                 console.log(chalk.blue('============== Try ' + counter + ' ==============='));
-                this.timer = this.consoleTimer(`lucky word: ${tempWord}`);
                 console.log('correct:', this.correctLetters);
-                console.log('possible:', this.presentLetters);
+                console.log('present:', this.presentLetters);
                 console.log('avoid:', this.avoidLetters);
                 console.log('absent:', this.absentLetters);
-                console.log('suggest words:', this.dumpWords.length, 'items');
-                console.log(this.dumpWords);
-                this.historyWords.push(tempWord);
+                this.timer = this.consoleTimer('', true);
+                while (true) {
+                    try {
+                        this.dumpWords = this.shuffle(counter === 1 ? this.wordBank.filter(word => this.checkWord(word)) : this.dumpWords.filter(word => this.checkWord(word)));
+                        tempWord = counter === 1 ? (this.isRandomWord ? this.randomPick(this.dumpWords) : this.openerWord) : this.randomPick(this.dumpWords);
+                        dictResult = await this.isDictWord(tempWord);
+                        if (dictResult.data.length) {
+                            this.clearTimer(this.timer);
+                            if (this.isRandomWord || counter > 1) {
+                                console.log('suggest words:', this.dumpWords.length, 'items');
+                                console.log(this.dumpWords);
+                            }
+                            break;
+                        }
+                    } catch (error) {
+                        this.historyWords.push(tempWord);
+                    }
+                }
+                this.timer = this.consoleTimer(`lucky word: ${tempWord}`);
                 await this.page.waitForTimeout(3000);
                 await this.submit(tempWord);
+                this.historyWords.push(tempWord);
                 await this.page.waitForTimeout(1000);
                 evaluationTemp = await this.getEvaluation(tempWord);
                 this.timer = this.consoleTimer(evaluationTemp);
@@ -262,9 +278,8 @@ class WordleSolver {
                         }
                     });
                 } else {
-                    console.log(chalk.red('not in word list'));
+                    console.log(chalk.red(`This word is not in wordle's dictionary!`));
                 }
-
                 switch (this.winChecker()) {
                     case 'win':
                         this.clearTimer(this.timer);
@@ -274,61 +289,99 @@ class WordleSolver {
                         break;
                     case 'lose':
                         this.clearTimer(this.timer);
-                        console.log(chalk.red('============= You Lose ============='));
+                        console.log(chalk.red('==== You Lose, Repeat Execution ===='));
                         flagFinish = true;
+                        flagStatus = 'lose';
                         break;
                     default:
-                        this.dumpWords = this.shuffle(this.wordBank.filter(word => this.checkWord(word)));
-                        tempWord = this.randomPick(this.dumpWords);
-                        // if (counter % 1 == 0) console.clear();
+                        flagFinish = false;
+                        // if (counter % 1 === 0) console.clear();
                         counter++;
+                        break;
                 }
                 if (flagFinish) {
                     await this.page.waitForTimeout(5000);
                     await this.browser.close();
                     break;
                 }
-                // await this.page.waitForTimeout(500);
-                // await this.click(statistics);
-                // this.timer = this.consoleTimer(await this.winChecker());
             }
             return flagStatus;
         } catch (e) {
+            this.clearTimer(this.timer);
             await this.page.waitForTimeout(5000);
             await this.browser.close();
             throw e;
         }
     }
 
-    async start() {
+    readLine = async(question) => {
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+        return new Promise(resolve => {
+            rl.question(question, (answer) => {
+                rl.close();
+                resolve(answer);
+            });
+        });
+    }
+
+    start = async() => {
         // console.clear();
         console.log('========== Wordle Solver ===========');
         try {
+            let flagInput;
+            while (true) {
+                let isRandomWord = await this.readLine('Random word? (y/n) ');
+                switch (isRandomWord.toLowerCase()) {
+                    case 'y':
+                        this.isRandomWord = true;
+                        flagInput = true;
+                        break;
+                    case 'n':
+                        this.isRandomWord = false;
+                        let dictResult;
+                        while (true) {
+                            this.openerWord = (await this.readLine('Enter word: ')).toUpperCase();
+                            if (this.openerWord.length === 5) {
+                                try {
+                                    dictResult = await this.isDictWord(this.openerWord);
+                                    if (dictResult.data.length) {
+                                        break;
+                                    }
+                                } catch {
+                                    console.log(chalk.red(`This word is not in the wiki's dictionary!`));
+                                }
+                            } else {
+                                console.log(chalk.red('Word length must be 5!'));
+                            }
+                        }
+                        flagInput = true;
+                        break;
+                    default:
+                        flagInput = false;
+                        console.log(chalk.red('Invalid input!'));
+                }
+                if (flagInput) break;
+            }
             await this.initBrowser();
             return await this.toDo();
         } catch (e) {
-            throw e;
+            console.log(chalk.red(e));
         }
     }
-
-    // async tempFunction() {
-    //     await this.initBrowser();
-    //     this.page = await this.browser.newPage();
-    //     await this.page.goto('https://www.nytimes.com/games/wordle/index.html');
-    //     console.log(await this.winChecker());
-    // }
 }
 (async() => {
-    fs.readFile('./wordbank.txt', (err, data) => {
-        if (err) throw err;
-        let allWords = data.toString().split("\n").map(v => v.trim().toLowerCase());
-        let allFiveLetter = allWords.filter(word => word.length === 5 && /^[a-zA-Z()]+$/.test(word)).map(word => word.toUpperCase());
-        let solver;
-        let stop = false;
+    fs.readFile('./wordbank.txt', (error, data) => {
         try {
+            if (error) throw error;
+            let allWords = data.toString().split('\n').map(v => v.trim().toLowerCase());
+            let allFiveLetter = allWords.filter(word => word.length === 5 && /^[a-zA-Z()]+$/.test(word)).map(word => word.toUpperCase());
+            let solver, stop = false;
             (async() => {
                 while (true) {
-                    await Promise.all([new Promise((resolve, reject) => {
+                    await Promise.all([new Promise(async(resolve, reject) => {
                         solver = new WordleSolver(allFiveLetter);
                         try {
                             resolve(solver.start());
@@ -338,15 +391,11 @@ class WordleSolver {
                     })]).then((result) => {
                         stop = (result[0] === 'win');
                     });
-                    if (stop) {
-                        break
-                    }
+                    if (stop) break;
                 }
             })()
         } catch (e) {
-            console.log(chalk.red(e));
+            console.error(chalk.red(e));
         }
-        // allFiveLetter.sort().reverse();
-        // console.log(allFiveLetter);
     });
 })()

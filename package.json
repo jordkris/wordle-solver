@@ -19,6 +19,7 @@
     "homepage": "https://github.com/jordy-k/wordle-solver#readme",
     "type": "module",
     "dependencies": {
+        "axios": "^0.26.1",
         "chalk": "^5.0.1",
         "csvtojson": "^2.0.10",
         "fs": "0.0.1-security",
